@@ -29,22 +29,33 @@
 
 import re, html.entities
 import tempfile
-import os
 import io, gzip, urllib.request, urllib.error, urllib.parse
 import socket
 import socks
 import re
+from os import environ, fdopen
 
 # Some sites blocks default python User-agent
 user_agent = 'Mozilla/5.0'
 headers    = {'User-Agent': user_agent}
 # SOCKS5 Proxy support
-if "sock_proxy" in os.environ and len(os.environ["sock_proxy"].strip()) > 0:
-    proxy_str = os.environ["sock_proxy"].strip()
+if "sock_proxy" in environ and len(environ["sock_proxy"].strip()) > 0:
+    proxy_str = environ["sock_proxy"].strip()
     m=re.match(r"^(?:(?P<username>[^:]+):(?P<password>[^@]+)@)?(?P<host>[^:]+):(?P<port>\w+)$", proxy_str)
     if m is not None:
         socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, m.group('host'), int(m.group('port')), True, m.group('username'), m.group('password'))
         socket.socket = socks.socksocket
+
+#Qbt is bind to use specif interface so search should use it too
+#we'll live with another hack
+if "QBT_PY_IP_TO_USE" in environ:
+    _orig_socket = socket.socket
+    _source_ip = environ["QBT_PY_IP_TO_USE"]
+    def bound_socket(*a, **k):
+        sock = _orig_socket(*a, **l)
+        sock.bind((_source_ip, 0))
+        return sock
+    socket.socket = bound_socket
 
 def htmlentitydecode(s):
     # First convert alpha entities (such as &eacute;)
@@ -92,7 +103,7 @@ def retrieve_url(url):
 def download_file(url, referer=None):
     """ Download file at url and write it to a file, return the path to the file and the url """
     file, path = tempfile.mkstemp()
-    file = os.fdopen(file, "wb")
+    file = fdopen(file, "wb")
     # Download url
     req = urllib.request.Request(url, headers = headers)
     if referer is not None:
