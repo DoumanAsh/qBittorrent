@@ -187,6 +187,16 @@ void SearchWidget::giveFocusToSearchInput()
     m_searchPattern->setFocus();
 }
 
+/** @brief Stops search.
+ *
+ *  Checks states and performs clean-up of widget.
+ */
+void inline static SearchWidget::stopSearch()
+{
+    m_searchEngine->cancelSearch();
+    if (!m_isNewQueryString) searchButton->setText(tr("Search"));
+}
+
 // Function called when we click on search button
 void SearchWidget::on_searchButton_clicked()
 {
@@ -195,14 +205,7 @@ void SearchWidget::on_searchButton_clicked()
         return;
     }
 
-    if (m_searchEngine->isActive()) {
-        m_searchEngine->cancelSearch();
-
-        if (!m_isNewQueryString) {
-            searchButton->setText(tr("Search"));
-            return;
-        }
-    }
+    if (m_searchEngine->isActive()) stopSearch();
 
     m_isNewQueryString = false;
 
@@ -282,6 +285,8 @@ void SearchWidget::searchFinished(bool cancelled)
     if (Preferences::instance()->useProgramNotification() && (m_mainWindow->getCurrentTabWidget() != this))
         m_mainWindow->showNotificationBaloon(tr("Search Engine"), tr("Search has finished"));
 
+    searchButton->setText(tr("Search"));
+
     if (m_activeSearchTab.isNull()) return; // The active tab was closed
 
     if (cancelled)
@@ -293,7 +298,6 @@ void SearchWidget::searchFinished(bool cancelled)
 
     searchStatus->setText(m_currentSearchTab->status());
     m_activeSearchTab = 0;
-    searchButton->setText(tr("Search"));
 }
 
 void SearchWidget::searchFailed()
@@ -313,7 +317,7 @@ void SearchWidget::searchFailed()
 void SearchWidget::appendSearchResults(const QList<SearchResult> &results)
 {
     if (m_activeSearchTab.isNull()) {
-        m_searchEngine->cancelSearch();
+        stopSearch();
         return;
     }
 
@@ -351,8 +355,7 @@ void SearchWidget::closeTab(int index)
     // Search is run for active tab so if user decided to close it, then stop search
     if (!m_activeSearchTab.isNull() && index == tabWidget->indexOf(m_activeSearchTab)) {
         qDebug("Closed active search Tab");
-        if (m_searchEngine->isActive())
-            m_searchEngine->cancelSearch();
+        if (m_searchEngine->isActive()) stopSearch();
         m_activeSearchTab = 0;
     }
 
